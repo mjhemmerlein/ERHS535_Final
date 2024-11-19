@@ -1,0 +1,52 @@
+---
+title: "US State Parks""
+author: "Melody Hayman"
+date: "2024-11-19"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## State Parks and Elevations
+
+This interactive dashboard shows the highest elevation for each U.S. state park. Hover over each data point to see an image of the park.
+
+```{r panel A, parks and evelations}
+#install.packages("flexdashboard")
+library(flexdashboard)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+
+# Sample data for state parks (you would replace this with actual data)
+state_parks_data <- data.frame(
+  park_name = c("Yellowstone", "Yosemite", "Everglades", "Rocky Mountain", "Grand Canyon"),
+  highest_elevation = c(11350, 13000, 8, 14110, 7460),  # Elevations in feet
+  park_image_url = c("https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Yellowstone_National_Park_logo.svg/800px-Yellowstone_National_Park_logo.svg.png",
+                     "https://upload.wikimedia.org/wikipedia/commons/0/09/Yosemite_park_logo.png",
+                     "https://upload.wikimedia.org/wikipedia/commons/a/ae/Everglades_National_Park_Logo.jpg",
+                     "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Rocky_Mountain_National_Park_logo.svg/800px-Rocky_Mountain_National_Park_logo.svg.png",
+                     "https://upload.wikimedia.org/wikipedia/commons/0/01/Grand_Canyon_National_Park_Logo.jpg")
+)
+
+# Create the plot
+plot_ly(state_parks_data, x = ~park_name, y = ~highest_elevation, type = 'scatter', mode = 'markers',
+        text = ~paste('<b>', park_name, '</b><br>Elevation: ', highest_elevation, 'ft'),
+        hoverinfo = 'text', marker = list(size = 12)) %>%
+  layout(title = "Highest Elevation in U.S. State Parks",
+         xaxis = list(title = "Park Name"),
+         yaxis = list(title = "Highest Elevation (ft)"),
+         hoverlabel = list(bgcolor = "white", font = list(size = 12)),
+         annotations = list(
+           x = 0.5,
+           y = 1.05,
+           text = "Hover to see park images",
+           showarrow = F,
+           font = list(size = 16, color = "black"),
+           xref = "paper", yref = "paper"
+         ))
+```
