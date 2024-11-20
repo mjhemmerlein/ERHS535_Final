@@ -20,8 +20,11 @@ list.files("Raw_Data/gtopo30/")
 
 elevation <- read_sf("Raw_Data/gtopo30/")
 
+ggplot() +
+  geom_sf(data = elevation) +
+  theme_minimal()
 
-
+str(elevation)
 
 
 # Plot data together
