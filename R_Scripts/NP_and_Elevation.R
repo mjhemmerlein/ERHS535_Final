@@ -1,53 +1,40 @@
 library(sf)
 library(tigris)
 library(ggplot2)
-library(terra)
 library(dplyr)
+library(elevatr)
+library(stringr)
+library(forcats)
 
-# Park Boundaries ------
-list.files("Raw_Data/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service_-5686076531246143185/")
+# Park Centroids ------
+list.files("Raw_Data/NPS_Centroid/")
 
-NP_Boundary <- read_sf("Raw_Data/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service_-5686076531246143185/")
+np_centroid <- read_sf("Raw_Data/NPS_Centroid/")
 
 ggplot() +
-  geom_sf(data = NP_Boundary %>% filter(UNIT_NAME == "Glacier National Park"), 
-          color = "blue") +  # Park boundary
+  geom_sf(data = np_centroid) +
   theme_minimal()
 
-
-# Park Elevation -------
-list.files("Raw_Data/gtopo30/")
-
-elevation <- read_sf("Raw_Data/gtopo30/")
-
-
+# Clean POINT column to separate longitude and latitude
+np_centroid <- np_centroid %>%
+  mutate(
+    lon = st_coordinates(geometry)[, 1],  # Extract longitude (1st column)
+    lat = st_coordinates(geometry)[, 2] )   # Extract latitude (2nd column)
 
 
+elevation_data <- get_elev_point(np_centroid, prj = st_crs(np_centroid), src = "aws") %>%
+  arrange(elevation)
 
-# Plot data together
-ggplot() +
-  geom_sf(data = elevation) +
-  geom_sf(data = glacier)
+# Plot elevation by park ------
 
-# Check coordinate reference systems (CRS) between datasets
-st_crs(NP_Boundary) # Uses EPSG:3857 formatting
+elevation_data %>%
+  arrange(elevation) %>%
+  ggplot(aes(x = PARKNAME, y = elevation)) +
+  geom_point()
 
-st_crs(elevation) # Uses EPSG:4326 formatting
-
-# Transform the NP_Boundary dataset to EPSG:4326
-
-NP_Boundary <- st_transform(NP_Boundary, crs = 4326)
-
-st_crs(NP_Boundary) # Ensure it now matches EPSG:4326
-
-
-ggplot() +
-  geom_sf(data = NP_Boundary %>% filter(UNIT_NAME == "Glacier National Park"), 
-          color = "blue") +  # Park boundary
-  geom_sf(data = elevation, fill = "gray", alpha = 0.5) +  # Elevation layer
-  theme_minimal()
-
-# Check bounding box for both datasets
-st_bbox(NP_Boundary)
-st_bbox(elevation)
-
+elevation_data %>%
+  filter(UNIT_TYPE == "National Park") %>%
+  mutate(PARKNAME = fct_reorder(PARKNAME, elevation)) %>%
+  ggplot(aes(x = PARKNAME, y = elevation)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
