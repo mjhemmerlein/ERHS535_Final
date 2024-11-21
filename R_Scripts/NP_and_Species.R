@@ -5,9 +5,10 @@ library(dplyr)
 # Read in cleaned data
 nps_species <- read_csv("smoky_mountains.csv")
 
-# Exclude plants
+# Exclude vascular plants
 nps_species <- nps_species %>%
   filter(TaxaGroup != "Vascular-plant") %>%
+  filter(TaxaGroup != "Non-vascular plant") %>%
   filter(!grepl("Wide", ElevationRange))
 
 # Categories
@@ -60,3 +61,22 @@ result <- expanded_data %>%
 print(result)
 
 # Elevation groups for plotting
+Low <- expanded_data %>%
+  filter(Elevation_Group == "Low") %>%
+  group_by(CategoryName)
+
+Mid <- expanded_data %>%
+  filter(Elevation_Group == "Mid") %>%
+  group_by(CategoryName) 
+
+High <- expanded_data %>%
+  filter(Elevation_Group == "High") %>%
+  group_by(CategoryName)
+
+# Combined Plot -------
+expanded_data %>%
+  ggplot(aes(x = CategoryName, fill = Nativeness)) +
+  geom_bar() +
+  facet_wrap(~ Elevation_Group)
+
+
