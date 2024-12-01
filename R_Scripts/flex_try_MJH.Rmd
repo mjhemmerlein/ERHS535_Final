@@ -3,7 +3,7 @@ title: "Elevation and Species of U.S. National Parks"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
-    orientation: rows
+    orientation: column
     vertical_layout: fill
     theme: sandstone
 ---
@@ -34,9 +34,9 @@ Data sources: [NHGIS](https://nhgis.org), United States Census Bureau
 
 # Explore National Parks
 
-## Column {data-width="350"}
+## Column {.column}
 
-### Elevation of National Parks
+### Elevation of Top 15 Most Visited National Parks
 
 ```{r}
 
@@ -49,6 +49,19 @@ np_centroid <- np_centroid %>%
     lon = st_coordinates(geometry)[, 1],  # Longitude
     lat = st_coordinates(geometry)[, 2]  # Latitude
   )
+
+# Read in most visited National Park data
+most_visited_nps_species_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-10-08/most_visited_nps_species_data.csv') 
+
+most_visited_nps_species_data <- most_visited_nps_species_data %>%
+  rename(UNIT_NAME = ParkName) %>%
+  distinct(UNIT_NAME, .keep_all = TRUE)
+
+# Filter centroid data for top 15 National Parks
+
+np_centroid <- np_centroid %>%
+  filter(UNIT_NAME %in% most_visited_nps_species_data$UNIT_NAME)
+
 
 # Get elevation data
 elevation_data <- get_elev_point(np_centroid, prj = st_crs(np_centroid), src = "aws") %>%
@@ -93,8 +106,8 @@ plot <- plot %>%
     y = ~elevation,
     type = 'scatter',
     mode = 'markers+text',
-    text = ~paste("Great Smoky Mountains: ", elevation, "m"),
-    textposition = "right bottom",
+    text = ~paste("Great Smoky Mountains<br> ", "Elevation: ", elevation, "m"),
+    textposition = "left top",
     marker = list(size = 12, color = "black"),
     hoverinfo = "text"
   )
@@ -104,9 +117,9 @@ plot
 
 ```
 
-## Column
 
-### Chart B
+
+### Great Smoky Mountains National Park Map
 
 ```{r, message=FALSE, warning=FALSE}
 # Load the necessary data
@@ -131,7 +144,9 @@ leaflet(boundary_wgs84) %>%
 map
 ```
 
-### Chart C {.content height="100%"}
+## Column {.column}
+
+### Species by Elevation in Great Smoky Mountains National Park {.content height="100%"}
 
 ```{r}
 # Read in cleaned data
@@ -190,20 +205,17 @@ expanded_data <- prepare_data(nps_species)
 
 # UI
 ui <- fluidPage(
-  titlePanel("Species Distribution by Elevation Group"),
-  
+  # Remove the title panel, but keep the sidebar layout
   sidebarLayout(
     sidebarPanel(
-      selectInput("elevation_group", 
-                  "Select Elevation Group:", 
-                  choices = c("Low", "Mid", "High"))
+      selectInput("elevation_group", "Select Elevation Group:", choices = c("Low", "Mid", "High"))
     ),
-    
     mainPanel(
       plotOutput("species_plot")
     )
   )
 )
+
 
 # Server
 server <- function(input, output) {
@@ -219,7 +231,7 @@ server <- function(input, output) {
     ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
       geom_bar() +
       labs(
-        title = paste(input$elevation_group, "Elevation Group Species"),
+        title = paste(input$elevation_group, "Elevation Species"),
         y = "Count", 
         x = "Species Category"
       ) +
