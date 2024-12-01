@@ -1,30 +1,47 @@
 ---
-title: "Elevation and species of US National Parks"
+title: "Elevation and Species of U.S. National Parks"
+runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    theme: sandstone
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
-```
-
-# Page 1
-
-## Column {data-width="350"}
-
-### Chart A
-
-```{r}
+library(shiny)
+library(leaflet)
 library(plotly)
 library(dplyr)
 library(sf)
 library(elevatr)
 library(forcats)
+library(tidyverse)
+library(dplyr)
+```
+
+# Sidebar {.sidebar}
+
+Use the **Explore metros** tab to explore neighborhood diversity for your chosen metropolitan area in 2020. The red line on the scatterplot represents a locally-weighted estimate of how diversity varies in the metropolitan area by distance from its urban core or cores. Click and drag on the scatterplot to highlight the corresponding Census tracts on the map below, and click on a Census tract on the map to generate a chart of race and ethnicity counts.
+
+Click the **Compare over time** tab to examine how locally-weighted estimates of neighborhood diversity by distance from the urban core has varied between the 1990 and 2020 Censuses, and view maps of these shifts over time. To learn more about the project, click the **About** tab.
+
+Application author: [Kyle Walker](https://walker-data.com)
+
+Data sources: [NHGIS](https://nhgis.org), United States Census Bureau
+
+
+# Explore National Parks
+
+## Column {data-width="350"}
+
+### Elevation of National Parks
+
+```{r}
 
 # Read in the National Park centroid data
-np_centroid <- read_sf("Raw_Data/NPS_Centroid/")
+np_centroid <- read_sf("../Raw_Data/NPS_Centroid/")
 
 # Extract longitude and latitude from geometry
 np_centroid <- np_centroid %>%
@@ -60,12 +77,12 @@ plot <- plot_ly(
     "<b>Longitude:</b> ", round(lon, 2)
   ),
   hoverinfo = "text",
-  marker = list(size = 10, color = "blue")
+  marker = list(size = 10, color = "#92C54B")
 ) %>%
   layout(
-    title = "Elevation of U.S. National Parks (Ordered by Elevation)",
     xaxis = list(title = "U.S. National Park Name", tickangle = 45),
-    yaxis = list(title = "Elevation (meters)")
+    yaxis = list(title = "Elevation (meters)"),
+    showlegend = FALSE
   )
 
 # Add a special marker for the Great Smoky Mountains
@@ -77,32 +94,156 @@ plot <- plot %>%
     type = 'scatter',
     mode = 'markers+text',
     text = ~paste("Great Smoky Mountains: ", elevation, "m"),
-    textposition = "top center",
-    marker = list(size = 12, color = "red"),
+    textposition = "right bottom",
+    marker = list(size = 12, color = "black"),
     hoverinfo = "text"
   )
 
 # Display the plot
 plot
 
-
 ```
 
-## Column {data-width="350"}
+## Column
 
 ### Chart B
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+# Load the necessary data
+shapefile_path <- "../Raw_data/Great_Smoky_Mountains_National_Park_Boundary"
+boundary <- st_read(shapefile_path, quiet = TRUE)
 
+# transform the boundary into the correct file type for leaflet
+boundary_wgs84 <- st_transform(boundary, crs = 4326) 
+
+
+# Create a leaflet map with the Smokey Mountains boundary
+leaflet(boundary_wgs84) %>%
+  addTiles() %>%  # Add OpenStreetMap tiles
+  addPolygons(
+    fillColor = "lightblue",  # Fill color for the park boundary
+    weight = 2,               # Line weight for the boundary
+    color = "black",          # Border color of the boundary
+    opacity = 1,              # Opacity of the boundary
+    fillOpacity = 0.5         # Opacity of the fill
+  )
+# Render the map
+map
 ```
 
-### Chart C
+### Chart C {.content height="100%"}
 
 ```{r}
+# Read in cleaned data
+nps_species <- read_csv("../smoky_mountains.csv", show_col_types = FALSE)
 
+# Data preparation function
+prepare_data <- function(data) {
+  # Exclude vascular plants
+  data <- data %>%
+    filter(TaxaGroup != "Vascular-plant") %>%
+    filter(TaxaGroup != "Non-vascular plant") %>%
+    filter(!grepl("Wide", ElevationRange))
+  
+  # Expand data for overlapping ranges
+  expanded_data <- data %>%
+    mutate(Elevation_Group = case_when(
+      ElevationRange == "Low" ~ "Low",
+      ElevationRange == "Mid" ~ "Mid",
+      ElevationRange == "High" ~ "High",
+      ElevationRange == "Low and High" ~ "Low", 
+      ElevationRange == "Low to High" ~ "Low",  
+      ElevationRange == "Low to Mid" ~ "Low",   
+      ElevationRange == "Mid to High" ~ "Mid"   
+    )) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low and High") %>%
+        mutate(Elevation_Group = "High")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to High") %>%
+        mutate(Elevation_Group = "Mid")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to High") %>%
+        mutate(Elevation_Group = "High")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to Mid") %>%
+        mutate(Elevation_Group = "Mid")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Mid to High") %>%
+        mutate(Elevation_Group = "High")
+    )
+  
+  return(expanded_data)
+}
+
+# Prepare the data
+expanded_data <- prepare_data(nps_species)
+
+# UI
+ui <- fluidPage(
+  titlePanel("Species Distribution by Elevation Group"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("elevation_group", 
+                  "Select Elevation Group:", 
+                  choices = c("Low", "Mid", "High"))
+    ),
+    
+    mainPanel(
+      plotOutput("species_plot")
+    )
+  )
+)
+
+# Server
+server <- function(input, output) {
+  # Reactive data filtering based on selected elevation group
+  filtered_data <- reactive({
+    expanded_data %>%
+      filter(Elevation_Group == input$elevation_group) %>%
+      group_by(CategoryName)
+  })
+  
+  # Create the plot
+  output$species_plot <- renderPlot({
+    ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
+      geom_bar() +
+      labs(
+        title = paste(input$elevation_group, "Elevation Group Species"),
+        y = "Count", 
+        x = "Species Category"
+      ) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 16),
+        axis.title = element_text(size = 16, face = "bold"),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)
+      )
+  })
+}
+
+# Run the application 
+shinyApp(ui, server)
 ```
 
-# ReadMe {data-orientation="rows"}
+
+
+
+# About {data-orientation="rows"}
 
 ## Row {data-height="600"}
 
@@ -112,12 +253,3 @@ this setup allows for two pages, page 1 for graphs and page 2 for readme info, c
 
 info here link to github? where we got data from all the info about the graphs maybe csu logo would be cool
 
-### Picture (not final)
-
-```{r dpi=10}
-knitr::include_graphics("images/Yosemitepic.jpg")
-```
-
-</center>
-
-</a>
