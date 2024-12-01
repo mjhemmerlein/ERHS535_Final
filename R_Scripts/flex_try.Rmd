@@ -9,11 +9,10 @@ output:
 ```{r setup, include=FALSE}
 library(flexdashboard)
 ```
-Page 1
-=====================================  
-Column {data-width=350}
------------------------------------------------------------------------
 
+# Page 1
+
+## Column {data-width="350"}
 
 ### Chart A
 
@@ -89,8 +88,7 @@ plot
 
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+## Column {data-width="350"}
 
 ### Chart B
 
@@ -103,26 +101,23 @@ Column {data-width=350}
 ```{r}
 
 ```
-ReadMe {data-orientation=rows}
-=====================================     
-   
-Row {data-height=600}
--------------------------------------
+
+# ReadMe {data-orientation="rows"}
+
+## Row {data-height="600"}
 
 ### header
-this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph 
 
-info here
-link to github?
-where we got data from
-all the info about the graphs
-maybe csu logo would be cool
+this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph
+
+info here link to github? where we got data from all the info about the graphs maybe csu logo would be cool
 
 ### Picture (not final)
-
 
 ```{r dpi=10}
 knitr::include_graphics("images/Yosemitepic.jpg")
 ```
-</center></a>
 
+</center>
+
+</a>
