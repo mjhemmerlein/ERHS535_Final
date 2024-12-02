@@ -1,0 +1,267 @@
+---
+title: "Elevation and Species of U.S. National Parks"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: column
+    vertical_layout: fill
+    theme: sandstone
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(leaflet)
+library(plotly)
+library(dplyr)
+library(sf)
+library(elevatr)
+library(forcats)
+library(tidyverse)
+library(dplyr)
+```
+
+# Sidebar {.sidebar}
+
+Use the **Explore metros** tab to explore neighborhood diversity for your chosen metropolitan area in 2020. The red line on the scatterplot represents a locally-weighted estimate of how diversity varies in the metropolitan area by distance from its urban core or cores. Click and drag on the scatterplot to highlight the corresponding Census tracts on the map below, and click on a Census tract on the map to generate a chart of race and ethnicity counts.
+
+Click the **Compare over time** tab to examine how locally-weighted estimates of neighborhood diversity by distance from the urban core has varied between the 1990 and 2020 Censuses, and view maps of these shifts over time. To learn more about the project, click the **About** tab.
+
+Application author: [Kyle Walker](https://walker-data.com)
+
+Data sources: [NHGIS](https://nhgis.org), United States Census Bureau
+
+
+# Explore National Parks
+
+## Column {.column}
+
+### Elevation of Top 15 Most Visited National Parks
+
+```{r}
+
+# Read in the National Park centroid data
+np_centroid <- read_sf("../Raw_Data/NPS_Centroid/")
+
+# Extract longitude and latitude from geometry
+np_centroid <- np_centroid %>%
+  mutate(
+    lon = st_coordinates(geometry)[, 1],  # Longitude
+    lat = st_coordinates(geometry)[, 2]  # Latitude
+  )
+
+# Read in most visited National Park data
+most_visited_nps_species_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-10-08/most_visited_nps_species_data.csv') 
+
+most_visited_nps_species_data <- most_visited_nps_species_data %>%
+  rename(UNIT_NAME = ParkName) %>%
+  distinct(UNIT_NAME, .keep_all = TRUE)
+
+# Filter centroid data for top 15 National Parks
+
+np_centroid <- np_centroid %>%
+  filter(UNIT_NAME %in% most_visited_nps_species_data$UNIT_NAME)
+
+
+# Get elevation data
+elevation_data <- get_elev_point(np_centroid, prj = st_crs(np_centroid), src = "aws") %>%
+  arrange(elevation)
+
+# Reorder PARKNAME by elevation
+elevation_data <- elevation_data %>%
+  filter(UNIT_TYPE == "National Park") %>%
+  mutate(PARKNAME = fct_reorder(PARKNAME, elevation))
+
+# Selecting Great Smoky Mountains for highlighting
+gsm <- elevation_data %>% 
+  filter(PARKNAME == "Great Smoky Mountains")
+
+# Interactive plot using Plotly
+plot <- plot_ly(
+  data = elevation_data,
+  x = ~PARKNAME,
+  y = ~elevation,
+  type = 'scatter',
+  mode = 'markers',
+  text = ~paste0(
+    "<b>Park Name:</b> ", PARKNAME, "<br>",
+    "<b>Elevation:</b> ", elevation, " meters<br>",
+    "<b>Latitude:</b> ", round(lat, 2), "<br>",
+    "<b>Longitude:</b> ", round(lon, 2)
+  ),
+  hoverinfo = "text",
+  marker = list(size = 10, color = "#92C54B")
+) %>%
+  layout(
+    xaxis = list(title = "U.S. National Park Name", tickangle = 45),
+    yaxis = list(title = "Elevation (meters)"),
+    showlegend = FALSE
+  )
+
+# Add a special marker for the Great Smoky Mountains
+plot <- plot %>%
+  add_trace(
+    data = gsm,
+    x = ~PARKNAME,
+    y = ~elevation,
+    type = 'scatter',
+    mode = 'markers+text',
+    text = ~paste("Great Smoky Mountains<br> ", "Elevation: ", elevation, "m"),
+    textposition = "left top",
+    marker = list(size = 12, color = "black"),
+    hoverinfo = "text"
+  )
+
+# Display the plot
+plot
+
+```
+
+
+
+### Great Smoky Mountains National Park Map
+
+```{r, message=FALSE, warning=FALSE}
+# Load the necessary data
+shapefile_path <- "../Raw_data/Great_Smoky_Mountains_National_Park_Boundary"
+boundary <- st_read(shapefile_path, quiet = TRUE)
+
+# transform the boundary into the correct file type for leaflet
+boundary_wgs84 <- st_transform(boundary, crs = 4326) 
+
+
+# Create a leaflet map with the Smokey Mountains boundary
+leaflet(boundary_wgs84) %>%
+  addTiles() %>%  # Add OpenStreetMap tiles
+  addPolygons(
+    fillColor = "lightblue",  # Fill color for the park boundary
+    weight = 2,               # Line weight for the boundary
+    color = "black",          # Border color of the boundary
+    opacity = 1,              # Opacity of the boundary
+    fillOpacity = 0.5         # Opacity of the fill
+  )
+# Render the map
+map
+```
+
+## Column {.column}
+
+### Species by Elevation in Great Smoky Mountains National Park {.content height="100%"}
+
+```{r}
+# Read in cleaned data
+nps_species <- read_csv("../smoky_mountains.csv", show_col_types = FALSE)
+
+# Data preparation function
+prepare_data <- function(data) {
+  # Exclude vascular plants
+  data <- data %>%
+    filter(TaxaGroup != "Vascular-plant") %>%
+    filter(TaxaGroup != "Non-vascular plant") %>%
+    filter(!grepl("Wide", ElevationRange))
+  
+  # Expand data for overlapping ranges
+  expanded_data <- data %>%
+    mutate(Elevation_Group = case_when(
+      ElevationRange == "Low" ~ "Low",
+      ElevationRange == "Mid" ~ "Mid",
+      ElevationRange == "High" ~ "High",
+      ElevationRange == "Low and High" ~ "Low", 
+      ElevationRange == "Low to High" ~ "Low",  
+      ElevationRange == "Low to Mid" ~ "Low",   
+      ElevationRange == "Mid to High" ~ "Mid"   
+    )) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low and High") %>%
+        mutate(Elevation_Group = "High")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to High") %>%
+        mutate(Elevation_Group = "Mid")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to High") %>%
+        mutate(Elevation_Group = "High")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Low to Mid") %>%
+        mutate(Elevation_Group = "Mid")
+    ) %>%
+    bind_rows(
+      data %>%
+        filter(ElevationRange == "Mid to High") %>%
+        mutate(Elevation_Group = "High")
+    )
+  
+  return(expanded_data)
+}
+
+# Prepare the data
+expanded_data <- prepare_data(nps_species)
+
+# UI
+ui <- fluidPage(
+  # Remove the title panel, but keep the sidebar layout
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("elevation_group", "Select Elevation Group:", choices = c("Low", "Mid", "High"))
+    ),
+    mainPanel(
+      plotOutput("species_plot")
+    )
+  )
+)
+
+
+# Server
+server <- function(input, output) {
+  # Reactive data filtering based on selected elevation group
+  filtered_data <- reactive({
+    expanded_data %>%
+      filter(Elevation_Group == input$elevation_group) %>%
+      group_by(CategoryName)
+  })
+  
+  # Create the plot
+  output$species_plot <- renderPlot({
+    ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
+      geom_bar() +
+      labs(
+        title = paste(input$elevation_group, "Elevation Species"),
+        y = "Count", 
+        x = "Species Category"
+      ) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 16),
+        axis.title = element_text(size = 16, face = "bold"),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)
+      )
+  })
+}
+
+# Run the application 
+shinyApp(ui, server)
+```
+
+
+
+
+# About {data-orientation="rows"}
+
+## Row {data-height="600"}
+
+### header
+
+this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph
+
+info here link to github? where we got data from all the info about the graphs maybe csu logo would be cool
+

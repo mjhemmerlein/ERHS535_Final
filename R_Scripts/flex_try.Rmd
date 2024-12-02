@@ -9,11 +9,10 @@ output:
 ```{r setup, include=FALSE}
 library(flexdashboard)
 ```
-Page 1
-=====================================  
-Column {data-width=350}
------------------------------------------------------------------------
 
+# Page 1
+
+## Column {data-width="350"}
 
 ### Chart A
 
@@ -23,6 +22,7 @@ library(dplyr)
 library(sf)
 library(elevatr)
 library(forcats)
+
 
 # Read in the National Park centroid data
 np_centroid <- read_sf("Raw_Data/NPS_Centroid/")
@@ -89,40 +89,124 @@ plot
 
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+## Column {data-width="350"}
 
 ### Chart B
 
-```{r}
+```{r, fig.width=10, fig.height=5}
+library(readr)
 
+
+# Read in cleaned data
+nps_species <- read_csv("smoky_mountains.csv")
+
+# Exclude vascular plants
+nps_species <- nps_species %>%
+  filter(TaxaGroup != "Vascular-plant") %>%
+  filter(TaxaGroup != "Non-vascular plant") %>%
+  filter(!grepl("Wide", ElevationRange))
+
+# Categories
+#nps_species %>%
+  #count(ElevationRange)
+
+# Expand data for overlapping ranges
+expanded_data <- nps_species %>%
+  mutate(Elevation_Group = case_when(
+    ElevationRange == "Low" ~ "Low",
+    ElevationRange == "Mid" ~ "Mid",
+    ElevationRange == "High" ~ "High",
+    ElevationRange == "Low and High" ~ "Low", # First group for Low and High
+    ElevationRange == "Low to High" ~ "Low",  # First group for Low to High
+    ElevationRange == "Low to Mid" ~ "Low",   # First group for Low to Mid
+    ElevationRange == "Mid to High" ~ "Mid"   # First group for Mid to High
+  )) %>%
+  bind_rows(
+    nps_species %>%
+      filter(ElevationRange == "Low and High") %>%
+      mutate(Elevation_Group = "High")
+  ) %>%
+  bind_rows(
+    nps_species %>%
+      filter(ElevationRange == "Low to High") %>%
+      mutate(Elevation_Group = "Mid")
+  ) %>%
+  bind_rows(
+    nps_species %>%
+      filter(ElevationRange == "Low to High") %>%
+      mutate(Elevation_Group = "High")
+  ) %>%
+  bind_rows(
+    nps_species %>%
+      filter(ElevationRange == "Low to Mid") %>%
+      mutate(Elevation_Group = "Mid")
+  ) %>%
+  bind_rows(
+    nps_species %>%
+      filter(ElevationRange == "Mid to High") %>%
+      mutate(Elevation_Group = "High")
+  )
+
+# Summarize counts for each group
+result <- expanded_data %>%
+  group_by(Elevation_Group) %>%
+  count(ElevationRange)
+
+
+# Elevation groups for plotting
+Low <- expanded_data %>%
+  filter(Elevation_Group == "Low") %>%
+  group_by(CategoryName)
+
+Mid <- expanded_data %>%
+  filter(Elevation_Group == "Mid") %>%
+  group_by(CategoryName) 
+
+High <- expanded_data %>%
+  filter(Elevation_Group == "High") %>%
+  group_by(CategoryName)
+
+# Combined Plot -------
+expanded_data %>%
+  ggplot(aes(x = CategoryName, fill = Nativeness)) +
+  geom_bar() +
+  facet_grid(~ factor(Elevation_Group, levels = c("Low", "Mid", "High"))) +
+  ggtitle("Nativeness of Species in the Great Smoky Mountains", 
+          subtitle = "By Elevation Range") +
+  labs(y="Count", x= "Species Category")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10),
+        axis.text.y = element_text(size=16),
+        axis.title=element_text(size=16,face="bold"),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size=15, face= "bold"),
+        strip.text.x = element_text(size = 12, face = "bold"), 
+        legend.title=element_text(size=14, face = "bold"), 
+        legend.text=element_text(size=10))
 ```
+
 
 ### Chart C
 
 ```{r}
 
 ```
-ReadMe {data-orientation=rows}
-=====================================     
-   
-Row {data-height=600}
--------------------------------------
+
+# ReadMe {data-orientation="rows"}
+
+## Row {data-height="600"}
 
 ### header
-this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph 
 
-info here
-link to github?
-where we got data from
-all the info about the graphs
-maybe csu logo would be cool
+this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph
+
+info here link to github? where we got data from all the info about the graphs maybe csu logo would be cool
 
 ### Picture (not final)
 
-
 ```{r dpi=10}
-knitr::include_graphics("images/Yosemitepic.jpg")
+#knitr::include_graphics("images/Yosemitepic.jpg")
 ```
-</center></a>
 
+</center>
+
+</a>
