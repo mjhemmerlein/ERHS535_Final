@@ -234,6 +234,7 @@ server <- function(input, output) {
     ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
       geom_bar() +
       scale_fill_manual(values = new_colors)+
+      scale_y_continuous(limits = c(0, 35))+
       labs(
         title = paste(input$elevation_group, "Elevation Species"),
         y = "Count", 
