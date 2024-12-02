@@ -233,8 +233,9 @@ server <- function(input, output) {
   output$species_plot <- renderPlot({
     ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
       geom_bar() +
-      scale_fill_manual(values = new_colors)+
       scale_y_continuous(limits = c(0, 35))+
+       scale_fill_manual(values = new_colors)+
+      geom_text(stat='count', aes(label=..count..),position = position_stack(vjust=0.5))+
       labs(
         title = paste(input$elevation_group, "Elevation Species"),
         y = "Count", 
