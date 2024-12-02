@@ -226,10 +226,14 @@ server <- function(input, output) {
       group_by(CategoryName)
   })
   
+  # New color palette
+  new_colors <- c("#61D04F", "#2297E6", "#28E2E5", "#CD0BBC", "#CD0BBC", "#DF536B")
+  
   # Create the plot
   output$species_plot <- renderPlot({
     ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
       geom_bar() +
+      scale_fill_manual(values = new_colors)+
       labs(
         title = paste(input$elevation_group, "Elevation Species"),
         y = "Count", 
