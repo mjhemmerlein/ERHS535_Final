@@ -26,8 +26,10 @@ library(dplyr)
 knitr::include_graphics("csu_logo.png")
 ```
 
-The **Elevation of Top 15 Most Visited National Parks** graph shows an overview of the 15 most visited National state parks in the USA and their elevation in the center of the park. The bold black dot is showing the Great Smoky Mountains which is the focal point for this page. Hover over the points to see details for each park.  
-The **Great Smoky Mountains National Park Map** is a map showing the Great Smoky Mountains and the surrounding area. Use the mouse to drag the map around as well as the + and - to zoom in or zoom out.  
+The **Elevation of Top 15 Most Visited National Parks** graph shows an overview of the 15 most visited National state parks in the USA and their elevation in the center of the park. The bold black dot is showing the Great Smoky Mountains which is the focal point for this page. Hover over the points to see details for each park.\
+
+The **Great Smoky Mountains National Park Map** is a map showing the Great Smoky Mountains and the surrounding area. Use the mouse to drag the map around as well as the + and - to zoom in or zoom out.\  
+
 The **Species by Elevation in Great Smoky Mountains National Park** explores the native vs non-native species in the Great Smoky Mountains National Park based on elevation. Select between low, mid, and high to see the species diversity in the respective elevation.    
 
 Authors: [Victoria Talbott](https://github.com/vtalbott),
@@ -67,10 +69,8 @@ most_visited_nps_species_data <- most_visited_nps_species_data %>%
   distinct(UNIT_NAME, .keep_all = TRUE)
 
 # Filter centroid data for top 15 National Parks
-
 np_centroid <- np_centroid %>%
   filter(UNIT_NAME %in% most_visited_nps_species_data$UNIT_NAME)
-
 
 # Get elevation data
 elevation_data <- get_elev_point(np_centroid, prj = st_crs(np_centroid), src = "aws") %>%
@@ -243,8 +243,6 @@ server <- function(input, output) {
     group_by(CategoryName)
 })
 
-
-  
   # New color palette
   new_colors <- c("#61D04F", "#2297E6", "#28E2E5", "#CD0BBC", "#DF536B")
   
