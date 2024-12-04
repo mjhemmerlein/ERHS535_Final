@@ -152,7 +152,6 @@ map
 # Read in cleaned data
 nps_species <- read_csv("../smoky_mountains.csv", show_col_types = FALSE)
 
-# Data preparation function
 prepare_data <- function(data) {
   # Exclude vascular plants
   data <- data %>%
@@ -160,16 +159,23 @@ prepare_data <- function(data) {
     filter(TaxaGroup != "Non-vascular plant") %>%
     filter(!grepl("Wide", ElevationRange))
   
+  # Define the category levels
+  category_levels <- c("Amphibian", "Bird", "Fungi", "Insect", "Mammal", "Slug/Snail", "Spider/Scorpion")
+  
+  # Convert CategoryName to factor with specified levels
+  data <- data %>%
+    mutate(CategoryName = factor(CategoryName, levels = category_levels))
+  
   # Expand data for overlapping ranges
   expanded_data <- data %>%
     mutate(Elevation_Group = case_when(
       ElevationRange == "Low" ~ "Low",
       ElevationRange == "Mid" ~ "Mid",
       ElevationRange == "High" ~ "High",
-      ElevationRange == "Low and High" ~ "Low", 
-      ElevationRange == "Low to High" ~ "Low",  
-      ElevationRange == "Low to Mid" ~ "Low",   
-      ElevationRange == "Mid to High" ~ "Mid"   
+      ElevationRange == "Low and High" ~ "Low",
+      ElevationRange == "Low to High" ~ "Low",
+      ElevationRange == "Low to Mid" ~ "Low",
+      ElevationRange == "Mid to High" ~ "Mid"
     )) %>%
     bind_rows(
       data %>%
@@ -199,6 +205,7 @@ prepare_data <- function(data) {
   
   return(expanded_data)
 }
+
 
 # Prepare the data
 expanded_data <- prepare_data(nps_species)
@@ -262,16 +269,4 @@ server <- function(input, output) {
 shinyApp(ui, server)
 ```
 
-
-
-
-# About {data-orientation="rows"}
-
-## Row {data-height="600"}
-
-### header
-
-this setup allows for two pages, page 1 for graphs and page 2 for readme info, chart A is on top and B and C are split evenly on the bottom panel and will be the interactive graph
-
-info here link to github? where we got data from all the info about the graphs maybe csu logo would be cool
 
