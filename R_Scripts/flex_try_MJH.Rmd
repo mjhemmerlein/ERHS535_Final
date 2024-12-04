@@ -161,15 +161,15 @@ map
 # Read in cleaned data
 nps_species <- read_csv("../smoky_mountains.csv", show_col_types = FALSE)
 
+# Define the category levels
+category_levels <- c("Amphibian", "Bird", "Fungi", "Insect", "Mammal", "Slug/Snail", "Spider/Scorpion")
+
 prepare_data <- function(data) {
   # Exclude vascular plants
   data <- data %>%
     filter(TaxaGroup != "Vascular-plant") %>%
     filter(TaxaGroup != "Non-vascular plant") %>%
     filter(!grepl("Wide", ElevationRange))
-  
-  # Define the category levels
-  category_levels <- c("Amphibian", "Bird", "Fungi", "Insect", "Mammal", "Slug/Snail", "Spider/Scorpion")
   
   # Convert CategoryName to factor with specified levels
   data <- data %>%
@@ -237,10 +237,13 @@ ui <- fluidPage(
 server <- function(input, output) {
   # Reactive data filtering based on selected elevation group
   filtered_data <- reactive({
-    expanded_data %>%
-      filter(Elevation_Group == input$elevation_group) %>%
-      group_by(CategoryName)
-  })
+  expanded_data %>%
+    filter(Elevation_Group == input$elevation_group) %>%
+    mutate(CategoryName = factor(CategoryName, levels = category_levels)) %>%
+    group_by(CategoryName)
+})
+
+
   
   # New color palette
   new_colors <- c("#61D04F", "#2297E6", "#28E2E5", "#CD0BBC", "#DF536B")
@@ -250,6 +253,7 @@ server <- function(input, output) {
     ggplot(filtered_data(), aes(x = CategoryName, fill = Nativeness)) +
       geom_bar() +
       scale_y_continuous(expand = c(0,0),limits = c(0, 40))+
+      scale_x_discrete(drop = FALSE) + 
       scale_fill_manual(values = new_colors)+
       geom_text(stat='count', aes(label=..count..),position = position_stack(vjust=0.5))+
       labs(
